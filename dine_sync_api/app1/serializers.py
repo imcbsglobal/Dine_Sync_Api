@@ -32,10 +32,11 @@ class DineBillSerializer(serializers.ModelSerializer):
     billno = serializers.DecimalField(max_digits=10, decimal_places=0)
     time = serializers.DateTimeField(source='time_field', required=False, allow_null=True)
     user = serializers.CharField(source='user_field', max_length=15, required=False, allow_null=True, allow_blank=True)
+    date = serializers.DateField(source='date_field', required=False, allow_null=True)  # ADDED
     
     class Meta:
         model = DineBill
-        fields = ['billno', 'time', 'user', 'amount']
+        fields = ['billno', 'time', 'user', 'amount', 'date']  # ADDED 'date'
         
     def validate_billno(self, value):
         """Ensure billno is properly converted to decimal"""

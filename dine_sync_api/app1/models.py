@@ -45,6 +45,7 @@ class DineBill(models.Model):
     time_field = models.DateTimeField(blank=True, null=True, db_column='time')  # 'time' is reserved
     user_field = models.CharField(max_length=15, blank=True, null=True, db_column='user')  # 'user' is reserved
     amount = models.DecimalField(max_digits=13, decimal_places=5, blank=True, null=True)
+    date_field = models.DateField(blank=True, null=True, db_column='date')  # 'date' is reserved - ADDED
 
     class Meta:
         db_table = 'dine_bill'
