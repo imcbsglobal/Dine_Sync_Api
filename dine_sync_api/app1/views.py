@@ -3,7 +3,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from .models import AccUsers, TbItemMaster
 from .serializers import AccUsersSerializer, TbItemMasterSerializer
-from .serializers import DineBillSerializer,DineBill
+from .serializers import DineBillSerializer,DineBill,DineKotSalesDetail,DineKotSalesDetailSerializer
 import logging
 
 logger = logging.getLogger(__name__)
@@ -197,3 +197,139 @@ class DineBillAPIView(APIView):
         bills = DineBill.objects.all()
         serializer = DineBillSerializer(bills, many=True)
         return Response(serializer.data)
+    
+
+
+class DineKotSalesDetailAPIView(APIView):
+    def post(self, request):
+        """
+        Sync dine_kot_sales_detail data - clear existing and create new records
+        """
+        try:
+            data = request.data
+            
+            # Clear existing data
+            DineKotSalesDetail.objects.all().delete()
+            
+            # Create new records
+            created_count = 0
+            errors = []
+            
+            for item in data:
+                serializer = DineKotSalesDetailSerializer(data=item)
+                if serializer.is_valid():
+                    serializer.save()
+                    created_count += 1
+                else:
+                    errors.append({'record': item, 'error': serializer.errors})
+            
+            if errors:
+                return Response({
+                    'status': 'partial_success',
+                    'created': created_count,
+                    'errors': errors
+                }, status=status.HTTP_200_OK)
+            
+            return Response({
+                'status': 'success',
+                'message': f'Successfully synced {created_count} kot_sales_detail records',
+                'created': created_count
+            }, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            logger.error(f"Error syncing kot sales detail: {str(e)}")
+            return Response(
+                {'error': str(e)}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
+    def get(self, request):
+        """
+        Get all dine_kot_sales_detail data
+        """
+        try:
+            kot_details = DineKotSalesDetail.objects.all()
+            serializer = DineKotSalesDetailSerializer(kot_details, many=True)
+            return Response({
+                'status': 'success',
+                'count': len(serializer.data),
+                'data': serializer.data
+            }, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.error(f"Error fetching kot sales detail: {str(e)}")
+            return Response({
+                'status': 'error',
+                'message': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+
+
+
+
+# Add this to your views.py file
+
+from .models import CancelledBills
+from .serializers import CancelledBillsSerializer
+
+class CancelledBillsAPIView(APIView):
+    def post(self, request):
+        """
+        Sync cancelled_bills data - clear existing and create new records
+        """
+        try:
+            data = request.data
+            
+            # Clear existing data
+            CancelledBills.objects.all().delete()
+            
+            # Create new records
+            created_count = 0
+            errors = []
+            
+            for item in data:
+                serializer = CancelledBillsSerializer(data=item)
+                if serializer.is_valid():
+                    serializer.save()
+                    created_count += 1
+                else:
+                    errors.append({'record': item, 'error': serializer.errors})
+            
+            if errors:
+                return Response({
+                    'status': 'partial_success',
+                    'created': created_count,
+                    'errors': errors
+                }, status=status.HTTP_200_OK)
+            
+            return Response({
+                'status': 'success',
+                'message': f'Successfully synced {created_count} cancelled_bills records',
+                'created': created_count
+            }, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            logger.error(f"Error syncing cancelled bills: {str(e)}")
+            return Response(
+                {'error': str(e)}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
+    def get(self, request):
+        """
+        Get all cancelled_bills data
+        """
+        try:
+            cancelled_bills = CancelledBills.objects.all()
+            serializer = CancelledBillsSerializer(cancelled_bills, many=True)
+            return Response({
+                'status': 'success',
+                'count': len(serializer.data),
+                'data': serializer.data
+            }, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.error(f"Error fetching cancelled bills: {str(e)}")
+            return Response({
+                'status': 'error',
+                'message': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

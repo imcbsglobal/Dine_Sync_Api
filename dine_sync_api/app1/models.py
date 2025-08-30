@@ -51,3 +51,39 @@ class DineBill(models.Model):
         
     def __str__(self):
         return str(self.billno)
+    
+
+
+
+
+
+class DineKotSalesDetail(models.Model):
+    slno = models.DecimalField(max_digits=10, decimal_places=0, primary_key=True)
+    billno = models.DecimalField(max_digits=10, decimal_places=0, blank=True, null=True)
+    item = models.CharField(max_length=15, blank=True, null=True)
+    qty = models.DecimalField(max_digits=10, decimal_places=3, blank=True, null=True)
+    rate = models.DecimalField(max_digits=14, decimal_places=5, blank=True, null=True)
+
+    class Meta:
+        db_table = 'dine_kot_sales_detail'
+        
+    def __str__(self):
+        return f"KOT {self.slno} - Bill {self.billno}"
+    
+
+
+
+
+# takes from dine_bill db
+
+class CancelledBills(models.Model): 
+    billno = models.DecimalField(max_digits=10, decimal_places=0, primary_key=True)
+    date_field = models.DateField(blank=True, null=True, db_column='date')  # 'date' is reserved
+    creditcard = models.CharField(max_length=30, blank=True, null=True)
+    colnstatus = models.CharField(max_length=1, blank=True, null=True)
+
+    class Meta:
+        db_table = 'cancelled_bills'
+        
+    def __str__(self):
+        return f"Cancelled Bill {self.billno}"

@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import AccUsers, TbItemMaster, DineBill
+from .models import AccUsers, TbItemMaster, DineBill,DineKotSalesDetail
 
 class AccUsersSerializer(serializers.ModelSerializer):
     password = serializers.CharField(source='pass_field', max_length=100)
@@ -36,6 +36,50 @@ class DineBillSerializer(serializers.ModelSerializer):
     class Meta:
         model = DineBill
         fields = ['billno', 'time', 'user', 'amount']
+        
+    def validate_billno(self, value):
+        """Ensure billno is properly converted to decimal"""
+        try:
+            return int(float(str(value)))
+        except (ValueError, TypeError):
+            raise serializers.ValidationError("Invalid billno format")
+        
+
+
+
+
+class DineKotSalesDetailSerializer(serializers.ModelSerializer):
+    billno = serializers.DecimalField(max_digits=10, decimal_places=0, required=False, allow_null=True)
+    item = serializers.CharField(max_length=15, required=False, allow_null=True, allow_blank=True)
+    qty = serializers.DecimalField(max_digits=10, decimal_places=3, required=False, allow_null=True)
+    rate = serializers.DecimalField(max_digits=14, decimal_places=5, required=False, allow_null=True)
+    
+    class Meta:
+        model = DineKotSalesDetail
+        fields = ['slno', 'billno', 'item', 'qty', 'rate']
+        
+    def validate_billno(self, value):
+        """Ensure billno is properly converted to decimal"""
+        if value is not None:
+            try:
+                return int(float(str(value)))
+            except (ValueError, TypeError):
+                raise serializers.ValidationError("Invalid billno format")
+        return value
+    
+
+
+from .models import CancelledBills
+
+class CancelledBillsSerializer(serializers.ModelSerializer):
+    billno = serializers.DecimalField(max_digits=10, decimal_places=0)
+    date = serializers.DateField(source='date_field', required=False, allow_null=True)
+    creditcard = serializers.CharField(max_length=30, required=False, allow_null=True, allow_blank=True)
+    colnstatus = serializers.CharField(max_length=1, required=False, allow_null=True, allow_blank=True)
+    
+    class Meta:
+        model = CancelledBills
+        fields = ['billno', 'date', 'creditcard', 'colnstatus']
         
     def validate_billno(self, value):
         """Ensure billno is properly converted to decimal"""
