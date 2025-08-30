@@ -32,3 +32,22 @@ class TbItemMaster(models.Model):
 
     def __str__(self):
         return self.item_code        
+
+
+
+
+
+
+
+
+class DineBill(models.Model):
+    billno = models.DecimalField(max_digits=10, decimal_places=0, primary_key=True)
+    time_field = models.DateTimeField(blank=True, null=True, db_column='time')  # 'time' is reserved
+    user_field = models.CharField(max_length=15, blank=True, null=True, db_column='user')  # 'user' is reserved
+    amount = models.DecimalField(max_digits=13, decimal_places=5, blank=True, null=True)
+
+    class Meta:
+        db_table = 'dine_bill'
+        
+    def __str__(self):
+        return str(self.billno)

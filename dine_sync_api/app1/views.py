@@ -3,6 +3,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from .models import AccUsers, TbItemMaster
 from .serializers import AccUsersSerializer, TbItemMasterSerializer
+from .serializers import DineBillSerializer,DineBill
 import logging
 
 logger = logging.getLogger(__name__)
@@ -156,3 +157,43 @@ class TbItemMasterAPIView(APIView):
 
 
 
+# NEW: DineBill API View
+class DineBillAPIView(APIView):
+    def post(self, request):
+        """
+        Sync dine_bill data - clear existing and create new records
+        """
+        try:
+            data = request.data
+            
+            # Clear existing data
+            DineBill.objects.all().delete()
+            
+            # Create new records
+            for item in data:
+                serializer = DineBillSerializer(data=item)
+                if serializer.is_valid():
+                    serializer.save()
+                else:
+                    return Response(
+                        {'error': f'Invalid data: {serializer.errors}'}, 
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+            
+            return Response({
+                'message': f'Successfully synced {len(data)} dine_bill records'
+            }, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            return Response(
+                {'error': str(e)}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
+    def get(self, request):
+        """
+        Get all dine_bill data
+        """
+        bills = DineBill.objects.all()
+        serializer = DineBillSerializer(bills, many=True)
+        return Response(serializer.data)

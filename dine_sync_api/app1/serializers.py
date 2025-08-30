@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import AccUsers, TbItemMaster
+from .models import AccUsers, TbItemMaster, DineBill
 
 class AccUsersSerializer(serializers.ModelSerializer):
     password = serializers.CharField(source='pass_field', max_length=100)
@@ -18,7 +18,6 @@ class AccUsersSerializer(serializers.ModelSerializer):
         return instance
     
 
-# NEW: Serializer for TbItemMaster
 class TbItemMasterSerializer(serializers.ModelSerializer):
     class Meta:
         model = TbItemMaster
@@ -26,3 +25,21 @@ class TbItemMasterSerializer(serializers.ModelSerializer):
             'id', 'item_code', 'item_name', 'rate', 'rate1', 'rate2',
             'rate3', 'rate4', 'rate5', 'rate6', 'rate7', 'kitchen', 'category'
         ]
+
+
+# NEW: DineBill serializer
+class DineBillSerializer(serializers.ModelSerializer):
+    billno = serializers.DecimalField(max_digits=10, decimal_places=0)
+    time = serializers.DateTimeField(source='time_field', required=False, allow_null=True)
+    user = serializers.CharField(source='user_field', max_length=15, required=False, allow_null=True, allow_blank=True)
+    
+    class Meta:
+        model = DineBill
+        fields = ['billno', 'time', 'user', 'amount']
+        
+    def validate_billno(self, value):
+        """Ensure billno is properly converted to decimal"""
+        try:
+            return int(float(str(value)))
+        except (ValueError, TypeError):
+            raise serializers.ValidationError("Invalid billno format")
