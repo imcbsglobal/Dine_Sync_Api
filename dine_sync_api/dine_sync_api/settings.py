@@ -25,7 +25,7 @@ SECRET_KEY = 'django-insecure-j7j1fl=g1l%8#!@eq4lxqzp2j@7z6_i!m*+69dvxb691q@o$@(
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ["dinesyncapi.sysmac.in","www.dinesyncapi.sysmac.in"]
 
 
 # Application definition

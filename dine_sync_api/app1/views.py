@@ -3,7 +3,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from .models import AccUsers, TbItemMaster
 from .serializers import AccUsersSerializer, TbItemMasterSerializer
-from .serializers import DineBillSerializer,DineBill,DineKotSalesDetail,DineKotSalesDetailSerializer
+from .serializers import DineBillSerializer,DineBill,DineKotSalesDetail,DineKotSalesDetailSerializer,DineBillMonthSerializer,DineBillMonth
 import logging
 
 logger = logging.getLogger(__name__)
@@ -198,7 +198,68 @@ class DineBillAPIView(APIView):
         serializer = DineBillSerializer(bills, many=True)
         return Response(serializer.data)
     
-
+# NEW: DineBillMonth API View (ALL data)
+class DineBillMonthAPIView(APIView):
+    def post(self, request):
+        """
+        Sync dine_bill_month data - clear existing and create new records (ALL data)
+        """
+        try:
+            data = request.data
+            
+            # Clear existing data
+            DineBillMonth.objects.all().delete()
+            
+            # Create new records
+            created_count = 0
+            errors = []
+            
+            for item in data:
+                serializer = DineBillMonthSerializer(data=item)
+                if serializer.is_valid():
+                    serializer.save()
+                    created_count += 1
+                else:
+                    errors.append({'record': item, 'error': serializer.errors})
+            
+            if errors:
+                return Response({
+                    'status': 'partial_success',
+                    'created': created_count,
+                    'errors': errors
+                }, status=status.HTTP_200_OK)
+            
+            return Response({
+                'status': 'success',
+                'message': f'Successfully synced {created_count} dine_bill_month records (ALL data)',
+                'created': created_count
+            }, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            logger.error(f"Error syncing dine_bill_month: {str(e)}")
+            return Response(
+                {'error': str(e)}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
+    def get(self, request):
+        """
+        Get all dine_bill_month data (ALL data)
+        """
+        try:
+            bills = DineBillMonth.objects.all()
+            serializer = DineBillMonthSerializer(bills, many=True)
+            return Response({
+                'status': 'success',
+                'count': len(serializer.data),
+                'data': serializer.data
+            }, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.error(f"Error fetching dine_bill_month: {str(e)}")
+            return Response({
+                'status': 'error',
+                'message': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class DineKotSalesDetailAPIView(APIView):
     def post(self, request):
