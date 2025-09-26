@@ -13,24 +13,52 @@ logger = logging.getLogger(__name__)
 
 def truncate_table(table_name):
     """
-    Safely truncate a specific table using raw SQL
+    Safely truncate a specific table - tries multiple approaches for different databases
     """
     try:
         with connection.cursor() as cursor:
-            # Disable foreign key checks temporarily
-            cursor.execute("SET FOREIGN_KEY_CHECKS = 0;")
-            
-            # Truncate the table (this resets auto-increment and is faster than DELETE)
-            cursor.execute(f"TRUNCATE TABLE `{table_name}`;")
-            
-            # Re-enable foreign key checks
-            cursor.execute("SET FOREIGN_KEY_CHECKS = 1;")
-            
-        logger.info(f"Successfully truncated table: {table_name}")
+            # Method 1: Try simple TRUNCATE first (works for most databases)
+            try:
+                cursor.execute(f"TRUNCATE TABLE [{table_name}]")
+                logger.info(f"Successfully truncated table: {table_name}")
+                return True
+            except Exception as e1:
+                logger.warning(f"TRUNCATE failed for {table_name}: {str(e1)}, trying DELETE...")
+                
+                # Method 2: Use DELETE as fallback
+                try:
+                    cursor.execute(f"DELETE FROM [{table_name}]")
+                    logger.info(f"Successfully deleted all records from table: {table_name}")
+                    
+                    # Try to reset identity/auto-increment (SQL Server)
+                    try:
+                        cursor.execute(f"DBCC CHECKIDENT('{table_name}', RESEED, 0)")
+                        logger.info(f"Reset identity for table: {table_name}")
+                    except:
+                        pass  # Identity reset not critical
+                    
+                    return True
+                except Exception as e2:
+                    logger.error(f"DELETE also failed for {table_name}: {str(e2)}")
+                    return False
+                    
+    except Exception as e:
+        logger.error(f"General error truncating table {table_name}: {str(e)}")
+        return False
+
+
+def clear_table_orm(model_class):
+    """
+    Alternative: Use Django ORM to delete all records (safer but slower)
+    """
+    try:
+        count = model_class.objects.all().delete()[0]
+        logger.info(f"Deleted {count} records from {model_class._meta.db_table} using ORM")
         return True
     except Exception as e:
-        logger.error(f"Error truncating table {table_name}: {str(e)}")
+        logger.error(f"Error deleting from {model_class._meta.db_table}: {str(e)}")
         return False
+
 
 class AccUsersAPIView(APIView):
     
@@ -52,7 +80,7 @@ class AccUsersAPIView(APIView):
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
     def post(self, request):
-        """Sync data - TRUNCATE and CREATE NEW acc_users records"""
+        """Sync data - CLEAR and CREATE NEW acc_users records"""
         try:
             data = request.data
             
@@ -60,12 +88,17 @@ class AccUsersAPIView(APIView):
             if isinstance(data, dict):
                 data = [data]
             
-            # TRUNCATE TABLE FIRST
-            if not truncate_table('acc_users'):
-                return Response({
-                    'status': 'error',
-                    'message': 'Failed to truncate acc_users table'
-                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            # Method 1: Try SQL TRUNCATE first
+            truncate_success = truncate_table('acc_users')
+            
+            # Method 2: If TRUNCATE fails, use Django ORM to clear table
+            if not truncate_success:
+                logger.warning("TRUNCATE failed, using Django ORM to clear acc_users table")
+                if not clear_table_orm(AccUsers):
+                    return Response({
+                        'status': 'error',
+                        'message': 'Failed to clear acc_users table'
+                    }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
             
             created_count = 0
             errors = []
@@ -92,7 +125,7 @@ class AccUsersAPIView(APIView):
             
             response_data = {
                 'status': 'success',
-                'message': f'Successfully synced {created_count} acc_users records (TRUNCATED table first)',
+                'message': f'Successfully synced {created_count} acc_users records (cleared table first)',
                 'created': created_count,
                 'total_received': len(data),
                 'errors': errors
@@ -131,18 +164,23 @@ class TbItemMasterAPIView(APIView):
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     def post(self, request):
-        """Sync data - TRUNCATE and CREATE NEW tb_item_master records"""
+        """Sync data - CLEAR and CREATE NEW tb_item_master records"""
         try:
             data = request.data
             if isinstance(data, dict):
                 data = [data]
 
-            # TRUNCATE TABLE FIRST
-            if not truncate_table('tb_item_master'):
-                return Response({
-                    'status': 'error',
-                    'message': 'Failed to truncate tb_item_master table'
-                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            # Method 1: Try SQL TRUNCATE first
+            truncate_success = truncate_table('tb_item_master')
+            
+            # Method 2: If TRUNCATE fails, use Django ORM to clear table
+            if not truncate_success:
+                logger.warning("TRUNCATE failed, using Django ORM to clear tb_item_master table")
+                if not clear_table_orm(TbItemMaster):
+                    return Response({
+                        'status': 'error',
+                        'message': 'Failed to clear tb_item_master table'
+                    }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
             created_count = 0
             errors = []
@@ -168,7 +206,7 @@ class TbItemMasterAPIView(APIView):
 
             response_data = {
                 'status': 'success',
-                'message': f'Successfully synced {created_count} tb_item_master records (TRUNCATED table first)',
+                'message': f'Successfully synced {created_count} tb_item_master records (cleared table first)',
                 'created': created_count,
                 'total_received': len(data),
                 'errors': errors
@@ -190,17 +228,22 @@ class TbItemMasterAPIView(APIView):
 class DineBillAPIView(APIView):
     def post(self, request):
         """
-        Sync dine_bill data - TRUNCATE and CREATE NEW records
+        Sync dine_bill data - CLEAR and CREATE NEW records
         """
         try:
             data = request.data
             
-            # TRUNCATE TABLE FIRST
-            if not truncate_table('dine_bill'):
-                return Response({
-                    'status': 'error',
-                    'message': 'Failed to truncate dine_bill table'
-                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            # Method 1: Try SQL TRUNCATE first
+            truncate_success = truncate_table('dine_bill')
+            
+            # Method 2: If TRUNCATE fails, use Django ORM to clear table
+            if not truncate_success:
+                logger.warning("TRUNCATE failed, using Django ORM to clear dine_bill table")
+                if not clear_table_orm(DineBill):
+                    return Response({
+                        'status': 'error',
+                        'message': 'Failed to clear dine_bill table'
+                    }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
             
             created_count = 0
             errors = []
@@ -218,7 +261,7 @@ class DineBillAPIView(APIView):
             if errors:
                 return Response({
                     'status': 'partial_success',
-                    'message': f'Synced {created_count} dine_bill records with some errors (TRUNCATED table first)',
+                    'message': f'Synced {created_count} dine_bill records with some errors (cleared table first)',
                     'created': created_count,
                     'total_received': len(data),
                     'errors': errors
@@ -226,7 +269,7 @@ class DineBillAPIView(APIView):
             
             return Response({
                 'status': 'success',
-                'message': f'Successfully synced {created_count} dine_bill records (TRUNCATED table first)',
+                'message': f'Successfully synced {created_count} dine_bill records (cleared table first)',
                 'created': created_count,
                 'total_received': len(data)
             }, status=status.HTTP_200_OK)
@@ -259,17 +302,22 @@ class DineBillAPIView(APIView):
 class DineBillMonthAPIView(APIView):
     def post(self, request):
         """
-        Sync dine_bill_month data - TRUNCATE and CREATE NEW records (ALL data)
+        Sync dine_bill_month data - CLEAR and CREATE NEW records (ALL data)
         """
         try:
             data = request.data
             
-            # TRUNCATE TABLE FIRST
-            if not truncate_table('dine_bill_month'):
-                return Response({
-                    'status': 'error',
-                    'message': 'Failed to truncate dine_bill_month table'
-                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            # Method 1: Try SQL TRUNCATE first
+            truncate_success = truncate_table('dine_bill_month')
+            
+            # Method 2: If TRUNCATE fails, use Django ORM to clear table
+            if not truncate_success:
+                logger.warning("TRUNCATE failed, using Django ORM to clear dine_bill_month table")
+                if not clear_table_orm(DineBillMonth):
+                    return Response({
+                        'status': 'error',
+                        'message': 'Failed to clear dine_bill_month table'
+                    }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
             
             created_count = 0
             errors = []
@@ -287,7 +335,7 @@ class DineBillMonthAPIView(APIView):
             if errors:
                 return Response({
                     'status': 'partial_success',
-                    'message': f'Synced {created_count} dine_bill_month records with some errors (TRUNCATED table first)',
+                    'message': f'Synced {created_count} dine_bill_month records with some errors (cleared table first)',
                     'created': created_count,
                     'total_received': len(data),
                     'errors': errors
@@ -295,7 +343,7 @@ class DineBillMonthAPIView(APIView):
             
             return Response({
                 'status': 'success',
-                'message': f'Successfully synced {created_count} dine_bill_month records (TRUNCATED table first)',
+                'message': f'Successfully synced {created_count} dine_bill_month records (cleared table first)',
                 'created': created_count,
                 'total_received': len(data)
             }, status=status.HTTP_200_OK)
@@ -328,17 +376,22 @@ class DineBillMonthAPIView(APIView):
 class DineKotSalesDetailAPIView(APIView):
     def post(self, request):
         """
-        Sync dine_kot_sales_detail data - TRUNCATE and CREATE NEW records
+        Sync dine_kot_sales_detail data - CLEAR and CREATE NEW records
         """
         try:
             data = request.data
             
-            # TRUNCATE TABLE FIRST
-            if not truncate_table('dine_kot_sales_detail'):
-                return Response({
-                    'status': 'error',
-                    'message': 'Failed to truncate dine_kot_sales_detail table'
-                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            # Method 1: Try SQL TRUNCATE first
+            truncate_success = truncate_table('dine_kot_sales_detail')
+            
+            # Method 2: If TRUNCATE fails, use Django ORM to clear table
+            if not truncate_success:
+                logger.warning("TRUNCATE failed, using Django ORM to clear dine_kot_sales_detail table")
+                if not clear_table_orm(DineKotSalesDetail):
+                    return Response({
+                        'status': 'error',
+                        'message': 'Failed to clear dine_kot_sales_detail table'
+                    }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
             
             created_count = 0
             errors = []
@@ -356,7 +409,7 @@ class DineKotSalesDetailAPIView(APIView):
             if errors:
                 return Response({
                     'status': 'partial_success',
-                    'message': f'Synced {created_count} kot_sales_detail records with some errors (TRUNCATED table first)',
+                    'message': f'Synced {created_count} kot_sales_detail records with some errors (cleared table first)',
                     'created': created_count,
                     'total_received': len(data),
                     'errors': errors
@@ -364,7 +417,7 @@ class DineKotSalesDetailAPIView(APIView):
             
             return Response({
                 'status': 'success',
-                'message': f'Successfully synced {created_count} kot_sales_detail records (TRUNCATED table first)',
+                'message': f'Successfully synced {created_count} kot_sales_detail records (cleared table first)',
                 'created': created_count,
                 'total_received': len(data)
             }, status=status.HTTP_200_OK)
@@ -397,17 +450,22 @@ class DineKotSalesDetailAPIView(APIView):
 class CancelledBillsAPIView(APIView):
     def post(self, request):
         """
-        Sync cancelled_bills data - TRUNCATE and CREATE NEW records
+        Sync cancelled_bills data - CLEAR and CREATE NEW records
         """
         try:
             data = request.data
             
-            # TRUNCATE TABLE FIRST
-            if not truncate_table('cancelled_bills'):
-                return Response({
-                    'status': 'error',
-                    'message': 'Failed to truncate cancelled_bills table'
-                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            # Method 1: Try SQL TRUNCATE first
+            truncate_success = truncate_table('cancelled_bills')
+            
+            # Method 2: If TRUNCATE fails, use Django ORM to clear table
+            if not truncate_success:
+                logger.warning("TRUNCATE failed, using Django ORM to clear cancelled_bills table")
+                if not clear_table_orm(CancelledBills):
+                    return Response({
+                        'status': 'error',
+                        'message': 'Failed to clear cancelled_bills table'
+                    }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
             
             created_count = 0
             errors = []
@@ -425,7 +483,7 @@ class CancelledBillsAPIView(APIView):
             if errors:
                 return Response({
                     'status': 'partial_success',
-                    'message': f'Synced {created_count} cancelled_bills records with some errors (TRUNCATED table first)',
+                    'message': f'Synced {created_count} cancelled_bills records with some errors (cleared table first)',
                     'created': created_count,
                     'total_received': len(data),
                     'errors': errors
@@ -433,7 +491,7 @@ class CancelledBillsAPIView(APIView):
             
             return Response({
                 'status': 'success',
-                'message': f'Successfully synced {created_count} cancelled_bills records (TRUNCATED table first)',
+                'message': f'Successfully synced {created_count} cancelled_bills records (cleared table first)',
                 'created': created_count,
                 'total_received': len(data)
             }, status=status.HTTP_200_OK)
